@@ -6,7 +6,6 @@ SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYM
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="v4l/by-id/cam_left"
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="v4l/by-id/cam_right"
 
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyUSB_air"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyUSB_temp"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyUSB_cj702"
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyUSB_alarm"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyACM_thermal"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="b002", SYMLINK+="ttyUSB_senxor"

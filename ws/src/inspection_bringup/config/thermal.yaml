@@ -1,9 +1,12 @@
 thermal_bridge:
   ros__parameters:
-    mock_mode: true
+    backend: mock
     publish_rate_hz: 5.0
+    fps: 10.0
+    hflip: false
     threshold_temp_c: 55.0
+    allow_mock_fallback: true
     frame_id: thermal_link
     width: 80
     height: 62
-    device_path: /dev/ttyACM_thermal
+    usb_port: ""

@@ -30,4 +30,10 @@ setup(
     maintainer_email="wyz@example.com",
     description="Launch and configuration assets for inspection peripherals.",
     license="Apache-2.0",
+    entry_points={
+        "console_scripts": [
+            "speaker_acceptance = inspection_bringup.speaker_acceptance:main",
+            "speaker_play_file = inspection_bringup.speaker_play_file:main",
+        ]
+    },
 )

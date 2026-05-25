@@ -1,8 +1,14 @@
 alarm_controller:
   ros__parameters:
     mock_backend: true
-    controller_device: /dev/ttyUSB_alarm
-    controller_baudrate: 115200
+    speaker_port: ""
+    speaker_baudrate: 9600
+    speaker_volume: 30
+    speaker_storage_target: flash
+    log_serial_frames: true
+    speaker_tracks.gas_warning: 1
+    speaker_tracks.thermal_warning: 2
+    speaker_tracks.manual_test: 1
     speaker_channel: 0
     flash_red_channel: 1
     flash_blue_channel: 2
