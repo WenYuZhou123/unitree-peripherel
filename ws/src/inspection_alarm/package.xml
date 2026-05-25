@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>inspection_alarm</name>
+  <version>0.1.0</version>
+  <description>Alarm service and digital-output abstraction for speaker and lights.</description>
+  <maintainer email="wyz@example.com">wyz</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>inspection_msgs</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

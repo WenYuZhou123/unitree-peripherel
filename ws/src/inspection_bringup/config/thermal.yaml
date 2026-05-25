@@ -1,0 +1,9 @@
+thermal_bridge:
+  ros__parameters:
+    mock_mode: true
+    publish_rate_hz: 5.0
+    threshold_temp_c: 55.0
+    frame_id: thermal_link
+    width: 80
+    height: 62
+    device_path: /dev/ttyACM_thermal
