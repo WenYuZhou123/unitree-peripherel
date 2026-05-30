@@ -3,23 +3,23 @@
 `unitree-peripherel` 是一个面向 `Jetson Orin Nano + Ubuntu 22.04 + ROS 2 Humble`
 的外设接入工作区，用来先完成台架联调，再迁移到 `Unitree B2` 机器狗平台。
 
-当前仓库已经把一批真实外设链路落到了同一套 ROS 2 工程里：
+当前仓库已经接入或预留了这些外设链路：
 
 - `4` 路 USB 工业摄像头
 - `1` 路热像仪
 - `CJ702` 七合一环境传感器
-- 语音喇叭
-- 爆闪灯 / 补光灯
+- `BY-F820` 语音喇叭
+- `3` 路继电器下位机，用于爆闪灯 / 补光灯等开关量
 - 后续迁移到 `B2` 所需的网络与接线适配
 
 ## 当前状态
 
 - 已完成 ROS 2 工作区骨架、消息定义、启动文件和桥接节点
-- `CJ702` 已按 `UART 串口 17 字节帧` 接入
-- 热像已按 `SenXor MI48 USB` 后端接入，并保留 mock 回退
-- `BY-F820` 已按 `UART/串口自由协议` 接入
+- `CJ702` 已按 `9600 8N1`、`17` 字节帧接入
+- `BY-F820` 已按真实串口协议接入
+- 继电器下位机已按固定 `6` 字节协议接入
+- 热像后端已接入 `SenXor MI48 USB`，并保留 mock 回退
 - 默认仍支持 `mock` 模式，未接真机也可以直接 `build` 和 `launch`
-- 相机链路优先适配 `v4l2_camera`，未安装该包时自动回退到占位发布器
 
 ## 目录结构
 
@@ -27,10 +27,10 @@
 ws/
 ├── src/
 │   ├── inspection_msgs/      # 自定义 msg / srv
-│   ├── inspection_bringup/   # launch、参数、udev 示例、B2 迁移说明
+│   ├── inspection_bringup/   # launch、参数、文档、验收脚本
 │   ├── inspection_vision/    # USB 相机占位发布器、热像桥接
 │   ├── inspection_env/       # 气体 / 温湿度桥接
-│   └── inspection_alarm/     # 喇叭 / 爆闪灯 / 补光灯控制
+│   └── inspection_alarm/     # 喇叭 / 继电器 / 告警控制
 ├── build/
 ├── install/
 └── log/
@@ -62,94 +62,295 @@ ws/
 - `inspection_msgs/msg/ThermalHotspot`
 - `inspection_msgs/srv/SetAlarmMode`
 
-## 快速开始
+## 如何拉仓库并复现
 
-### 1. 构建
+### 1. 克隆仓库
+
+HTTPS：
 
 ```bash
-cd /home/wyz/peripherel/ws
+git clone https://github.com/WenYuZhou123/unitree-peripherel.git
+cd unitree-peripherel
+```
+
+SSH：
+
+```bash
+git clone git@github.com:WenYuZhou123/unitree-peripherel.git
+cd unitree-peripherel
+```
+
+### 2. 进入工作区并安装依赖
+
+```bash
+cd ws
 source /opt/ros/humble/setup.bash
 python3 -m pip install --user pyserial numpy
+```
+
+如果你的系统还没有 `colcon`，先安装：
+
+```bash
+sudo apt update
+sudo apt install -y python3-colcon-common-extensions
+```
+
+### 3. 构建工作区
+
+```bash
+cd /path/to/unitree-peripherel/ws
+source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 ```
 
-### 2. 启动整套台架框架
+### 4. 进入运行环境
 
 ```bash
-cd /home/wyz/peripherel/ws
+cd /path/to/unitree-peripherel/ws
 source /opt/ros/humble/setup.bash
 source install/setup.bash
+```
+
+### 5. 复现整套台架框架
+
+```bash
 ros2 launch inspection_bringup bench.launch.py
 ```
 
-### 3. 测试告警服务
+说明：
+
+- `bench.launch.py` 会启动热像、环境、告警和相机相关节点
+- 默认配置下仍可能启用 `mock` 参数，所以做真机验收时请优先使用下面的单项验收命令
+
+## 串口识别
+
+如果当前机器已经把 USB 串口都接好，先看系统识别到的串口：
+
+```bash
+ls -l /dev/ttyCH341USB* /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+```
+
+本仓库最近一次实机验收时，对应关系是：
+
+- `CJ702`：`/dev/ttyCH341USB0`
+- `BY-F820`：`/dev/ttyCH341USB1`
+- 继电器下位机：`/dev/ttyCH341USB2`
+
+这组端口号不是协议的一部分，换机器、换插口或重新枚举后可能变化。
+如果要长期稳定使用，建议按 [udev_rules.example](/home/wyz/peripherel/ws/src/inspection_bringup/docs/udev_rules.example:1)
+配置固定别名。
+
+## 快速验证功能
+
+### 1. 启动告警服务后手动切模式
 
 ```bash
 ros2 service call /alarm/set_mode inspection_msgs/srv/SetAlarmMode \
   "{mode: thermal_warning, enabled: true}"
 ```
 
-## 包说明
+### 2. 直接播放喇叭音频
 
-### `inspection_msgs`
+```bash
+ros2 run inspection_bringup speaker_play_file \
+  --port /dev/ttyCH341USB1 \
+  --track-id 1
+```
 
-定义整个系统共享的消息和服务。当前 `AirState` 已经对齐到 `CJ702` 的
-`eCO2/eCH2O/TVOC/PM2.5/PM10` 数据模型。
+### 3. 查询继电器板状态
 
-### `inspection_bringup`
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action query
+```
 
-包含：
+## 单项验收命令
 
-- `bench.launch.py`：台架一键启动入口
-- `config/*.yaml`：热像、环境、告警、相机参数
-- `docs/udev_rules.example`：稳定设备命名示例
-- `docs/b2_migration.md`：迁移到 B2 的网络和接线说明
+下面这些命令是现场验收时最直接可用的版本。执行前先进入环境：
 
-### `inspection_vision`
+```bash
+cd /path/to/unitree-peripherel/ws
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+```
 
-包含两类节点和一个真实热像后端：
+### 空气质量传感器 `CJ702`
 
-- `thermal_bridge`：热像桥接，支持 `mock` 和 `senxor_usb`
-- `camera_placeholder`：当 `v4l2_camera` 未安装时的占位相机节点
+完整验收：
 
-后续接入真实 USB 工业相机时，优先使用 `v4l2_camera`，只需要把设备路径和参数改到
-`inspection_bringup/config/cameras.yaml` 与 udev 规则里。
+```bash
+ros2 run inspection_bringup env_acceptance \
+  --phase both \
+  --port /dev/ttyCH341USB0
+```
 
-### `inspection_env`
+只验串口原始收数：
 
-`env_bridge` 当前按 `CJ702` 七合一模块实现，默认走 `9600 8N1` 的
-`UART` 单路输入，并同时输出：
+```bash
+ros2 run inspection_bringup env_acceptance \
+  --phase serial \
+  --port /dev/ttyCH341USB0
+```
 
-- `/env/air_state`
-- `/env/temperature_humidity`
+只验 ROS 话题：
 
-### `inspection_alarm`
+```bash
+ros2 run inspection_bringup env_acceptance \
+  --phase topic \
+  --port /dev/ttyCH341USB0
+```
 
-`alarm_controller` 提供 `/alarm/set_mode` 服务，统一控制语音喇叭、爆闪灯、补光灯。
-本轮已实现 `BY-F820` 的串口自由协议喇叭驱动；灯光仍保留占位联动状态。
-当前支持的模式：
+通过标准：
 
-- `idle`
-- `gas_warning`
-- `thermal_warning`
-- `manual_test`
+- 串口阶段连续读到合法 `17` 字节帧
+- 话题阶段打印 `device_ok=True`
+- `/env/air_state` 与 `/env/temperature_humidity` 有真实数值，不是全零
 
-## 设备接入约定
+### 语音喇叭 `BY-F820`
 
-- USB 工业相机默认按 `1280x720@15fps` 规划
-- 热像仪走 `USB`，不强行并入串口总线
-- `CJ702` 走 `UART`，`BY-F820` 走串口通信
-- 喇叭已经按 `BY-F820` 真实串口协议驱动；灯具仍保留占位逻辑
+完整验收：
 
-## 配置入口
+```bash
+ros2 run inspection_bringup speaker_acceptance \
+  --phase both \
+  --port /dev/ttyCH341USB1
+```
 
-优先调整这些文件来对接真实硬件：
+只验串口协议发送：
 
-- `ws/src/inspection_bringup/config/cameras.yaml`
-- `ws/src/inspection_bringup/config/thermal.yaml`
-- `ws/src/inspection_bringup/config/env.yaml`
-- `ws/src/inspection_bringup/config/alarm.yaml`
-- `ws/src/inspection_bringup/docs/udev_rules.example`
+```bash
+ros2 run inspection_bringup speaker_acceptance \
+  --phase serial \
+  --port /dev/ttyCH341USB1
+```
+
+只验 ROS 服务联动：
+
+```bash
+ros2 run inspection_bringup speaker_acceptance \
+  --phase service \
+  --port /dev/ttyCH341USB1
+```
+
+指定播放单个音频文件：
+
+```bash
+ros2 run inspection_bringup speaker_play_file \
+  --port /dev/ttyCH341USB1 \
+  --track-id 1
+```
+
+如果要让单条语音完整播完再结束：
+
+```bash
+ros2 run inspection_bringup speaker_acceptance \
+  --port /dev/ttyCH341USB1 \
+  --phase service \
+  --single-mode manual_test \
+  --mode-hold-seconds 20
+```
+
+通过标准：
+
+- 串口阶段 `stop / set_volume / play_track` 发送帧正常
+- 服务阶段 `manual_test / gas_warning / thermal_warning / idle` 返回 `success=True`
+- 现场能听到对应语音
+
+### 继电器下位机
+
+查询状态：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action query
+```
+
+打开第 `1` 路：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-one \
+  --channel 1 \
+  --state 1
+```
+
+关闭第 `1` 路：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-one \
+  --channel 1 \
+  --state 0
+```
+
+打开第 `2` 路：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-one \
+  --channel 2 \
+  --state 1
+```
+
+关闭第 `2` 路：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-one \
+  --channel 2 \
+  --state 0
+```
+
+打开第 `3` 路：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-one \
+  --channel 3 \
+  --state 1
+```
+
+关闭第 `3` 路：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-one \
+  --channel 3 \
+  --state 0
+```
+
+全部打开：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-all \
+  --mask 0x07
+```
+
+全部关闭：
+
+```bash
+ros2 run inspection_alarm relay_cli \
+  --port /dev/ttyCH341USB2 \
+  --action set-all \
+  --mask 0x00
+```
+
+通过标准：
+
+- `query` 能拿到合法回包
+- 单路开关后 `mask` 与实际继电器状态一致
+- `set-all 0x07` 后三路全开
+- `set-all 0x00` 后三路全关
 
 ## 已验证
 
@@ -159,39 +360,32 @@ ros2 service call /alarm/set_mode inspection_msgs/srv/SetAlarmMode \
 - `colcon build --symlink-install`
 - `ros2 launch inspection_bringup bench.launch.py`
 - `/alarm/set_mode` 服务调用
-- mock 模式下的 topic 与 service 注册
+- `CJ702` 真机串口与 ROS 话题验收
+- `BY-F820` 真机串口与 ROS 服务验收
+- 继电器下位机 `query / set-one / set-all` 收发验收
 
-### 喇叭验收
+## 代码入口
 
-```bash
-source /opt/ros/humble/setup.bash
-source /home/wyz/peripherel/ws/install/setup.bash
-ros2 run inspection_bringup speaker_acceptance --port /dev/ttyCH341USB0
-```
+比较关键的代码文件如下：
 
-默认会先校验 BY-F820 的发送帧，再拉起 `/alarm/set_mode` 做模式联动测试。
-如果要完整播放一个音频再结束，推荐：
+- [env_bridge.py](/home/wyz/peripherel/ws/src/inspection_env/inspection_env/env_bridge.py:1)
+- [cj702.py](/home/wyz/peripherel/ws/src/inspection_env/inspection_env/cj702.py:1)
+- [alarm_controller.py](/home/wyz/peripherel/ws/src/inspection_alarm/inspection_alarm/alarm_controller.py:1)
+- [by_f820.py](/home/wyz/peripherel/ws/src/inspection_alarm/inspection_alarm/by_f820.py:1)
+- [relay_mcu.py](/home/wyz/peripherel/ws/src/inspection_alarm/inspection_alarm/relay_mcu.py:1)
+- [speaker_acceptance.py](/home/wyz/peripherel/ws/src/inspection_bringup/inspection_bringup/speaker_acceptance.py:1)
+- [env_acceptance.py](/home/wyz/peripherel/ws/src/inspection_bringup/inspection_bringup/env_acceptance.py:1)
 
-```bash
-ros2 run inspection_bringup speaker_acceptance \
-  --port /dev/ttyACM0 \
-  --phase service \
-  --single-mode manual_test \
-  --mode-hold-seconds 20
-```
+## 相关文档
 
-如果只是想指定播放某一个文件，推荐直接用：
-
-```bash
-ros2 run inspection_bringup speaker_play_file \
-  --port /dev/ttyACM0 \
-  --track-id 7
-```
+- [b2_migration.md](/home/wyz/peripherel/ws/src/inspection_bringup/docs/b2_migration.md:1)
+- [udev_rules.example](/home/wyz/peripherel/ws/src/inspection_bringup/docs/udev_rules.example:1)
+- [mcu_ros_bridge.md](/home/wyz/peripherel/ws/src/inspection_bringup/docs/mcu_ros_bridge.md:1)
 
 ## 下一步
 
-- 接入真实 `v4l2_camera` 驱动和 4 路 USB 相机
-- 接入真实 `SenXor MI48 USB` 设备联调热像
-- 接入真实 `CJ702` 与 `BY-F820` 做串口实机联调
-- 对接 DO 控制板，替换爆闪灯与补光灯的占位逻辑
-- 完成 B2 上车时的网络、供电和固定点适配
+- 给 `CJ702 / BY-F820 / relay MCU` 配稳定 `udev` 别名
+- 把继电器下位机进一步接入 `/alarm/set_mode` 联动链路
+- 接入真实 `v4l2_camera` 驱动和 `4` 路 USB 工业相机
+- 接入真实 `SenXor MI48 USB` 热像设备
+- 完成 `B2` 上车时的网络、供电和固定点适配

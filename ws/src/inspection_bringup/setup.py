@@ -21,7 +21,11 @@ setup(
         ),
         (
             f"share/{package_name}/docs",
-            ["docs/b2_migration.md", "docs/udev_rules.example"],
+            [
+                "docs/b2_migration.md",
+                "docs/mcu_ros_bridge.md",
+                "docs/udev_rules.example",
+            ],
         ),
     ],
     install_requires=["setuptools"],
@@ -32,6 +36,7 @@ setup(
     license="Apache-2.0",
     entry_points={
         "console_scripts": [
+            "env_acceptance = inspection_bringup.env_acceptance:main",
             "speaker_acceptance = inspection_bringup.speaker_acceptance:main",
             "speaker_play_file = inspection_bringup.speaker_play_file:main",
         ]

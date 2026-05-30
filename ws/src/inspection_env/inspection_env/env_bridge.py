@@ -1,4 +1,5 @@
 import math
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -20,18 +21,38 @@ class EnvBridge(Node):
         self.declare_parameter("serial_port", "/dev/ttyUSB_cj702")
         self.declare_parameter("baudrate", 9600)
         self.declare_parameter("frame_timeout", 0.5)
+        self.declare_parameter("sample_timeout", 2.0)
+        self.declare_parameter("startup_grace_s", 3.0)
+        self.declare_parameter("startup_timeout_suppressions", 3)
 
         self.mock_mode = bool(self.get_parameter("mock_mode").value)
         self.publish_rate_hz = max(float(self.get_parameter("publish_rate_hz").value), 0.2)
         self.serial_port = str(self.get_parameter("serial_port").value)
         self.baudrate = int(self.get_parameter("baudrate").value)
         self.frame_timeout = max(float(self.get_parameter("frame_timeout").value), 0.1)
+        self.sample_timeout = max(
+            float(self.get_parameter("sample_timeout").value),
+            self.frame_timeout,
+        )
+        configured_startup_grace_s = float(self.get_parameter("startup_grace_s").value)
+        self.startup_grace_s = max(
+            configured_startup_grace_s,
+            self.frame_timeout + (2.0 / self.publish_rate_hz),
+            0.0,
+        )
+        self.startup_timeout_suppressions = max(
+            int(self.get_parameter("startup_timeout_suppressions").value),
+            0,
+        )
 
         self.air_pub = self.create_publisher(AirState, "/env/air_state", 10)
         self.temp_pub = self.create_publisher(TempHumidity, "/env/temperature_humidity", 10)
         self.serial_stream = self._open_serial()
         self.timer = self.create_timer(1.0 / self.publish_rate_hz, self._tick)
         self.phase = 0.0
+        self._hardware_frame_received = False
+        self._startup_grace_deadline = time.monotonic() + self.startup_grace_s
+        self._suppressed_startup_timeouts = 0
 
     def _open_serial(self):
         if self.mock_mode or serial is None:
@@ -79,14 +100,36 @@ class EnvBridge(Node):
     def _get_sample(self):
         if self.serial_stream is not None:
             try:
-                frame = read_cj702_frame(self.serial_stream)
+                frame = self._wait_for_frame()
                 if frame is None:
                     raise ValueError("CJ702 frame timeout")
+                self._hardware_frame_received = True
                 return parse_cj702_frame(frame), True
             except Exception as exc:  # pragma: no cover - hardware path
-                self.get_logger().warning(f"CJ702 parse failed: {exc}")
+                if not self._should_suppress_startup_warning(exc):
+                    self.get_logger().warning(f"CJ702 parse failed: {exc}")
                 return self._invalid_sample(), False
         return self._mock_sample(), True
+
+    def _should_suppress_startup_warning(self, exc: Exception) -> bool:
+        if self._hardware_frame_received:
+            return False
+        if str(exc) != "CJ702 frame timeout":
+            return False
+        if self._suppressed_startup_timeouts < self.startup_timeout_suppressions:
+            self._suppressed_startup_timeouts += 1
+            return True
+        if time.monotonic() <= self._startup_grace_deadline:
+            return True
+        return False
+
+    def _wait_for_frame(self):
+        deadline = time.monotonic() + self.sample_timeout
+        while time.monotonic() < deadline:
+            frame = read_cj702_frame(self.serial_stream)
+            if frame is not None:
+                return frame
+        return None
 
     def _mock_sample(self) -> Cj702Sample:
         sample = Cj702Sample(

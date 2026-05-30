@@ -16,5 +16,10 @@ setup(
     maintainer_email="wyz@example.com",
     description="Alarm controller scaffolding.",
     license="Apache-2.0",
-    entry_points={"console_scripts": ["alarm_controller = inspection_alarm.alarm_controller:main"]},
+    entry_points={
+        "console_scripts": [
+            "alarm_controller = inspection_alarm.alarm_controller:main",
+            "relay_cli = inspection_alarm.relay_cli:main",
+        ]
+    },
 )
