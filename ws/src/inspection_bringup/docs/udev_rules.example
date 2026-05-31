@@ -1,11 +1,35 @@
 # Example udev aliases for stable peripheral naming.
-# Copy into /etc/udev/rules.d/99-inspection.rules and update IDs after hardware arrives.
+#
+# Copy into /etc/udev/rules.d/99-inspection.rules and then reload:
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#
+# Why the tty number changes:
+# - CH340 serial adapters often share the same idVendor/idProduct
+# - many of them do not expose a unique serial number
+# - Linux then assigns /dev/ttyCH341USB0/1/2 by enumeration order
+#
+# For identical USB-serial adapters, prefer matching by the physical USB path
+# using KERNELS=="...". Find it with:
+#   udevadm info -a -n /dev/ttyCH341USB0
+#
+# Notes:
+# - KERNELS=="1-2.1.1" style values are machine- and port-specific
+# - if you move a device to another USB port, update the rule accordingly
 
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="v4l/by-id/cam_front"
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="v4l/by-id/cam_rear"
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="v4l/by-id/cam_left"
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="v4l/by-id/cam_right"
 
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyUSB_cj702"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0000", ATTRS{idProduct}=="0000", SYMLINK+="ttyUSB_alarm"
+# Current validated mapping on this bench:
+# - 1-2.1.1 -> relay MCU
+# - 1-2.1.2 -> BY-F820 speaker
+# - 1-2.1.4 -> CJ702 sensor
+#
+# If you move a device to another USB port, update the KERNELS value.
+SUBSYSTEM=="tty", KERNELS=="1-2.1.1", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="ttyUSB_relay"
+SUBSYSTEM=="tty", KERNELS=="1-2.1.2", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="ttyUSB_alarm"
+SUBSYSTEM=="tty", KERNELS=="1-2.1.4", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="ttyUSB_cj702"
+
 SUBSYSTEM=="tty", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="b002", SYMLINK+="ttyUSB_senxor"

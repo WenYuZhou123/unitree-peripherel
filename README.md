@@ -130,15 +130,25 @@ ros2 launch inspection_bringup bench.launch.py
 ls -l /dev/ttyCH341USB* /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 ```
 
-本仓库最近一次实机验收时，对应关系是：
+推荐不要直接使用动态串口号，而是先加载固定别名规则：
 
-- `CJ702`：`/dev/ttyCH341USB0`
-- `BY-F820`：`/dev/ttyCH341USB1`
-- 继电器下位机：`/dev/ttyCH341USB2`
+```bash
+sudo cp ws/src/inspection_bringup/docs/udev_rules.example /etc/udev/rules.d/99-inspection.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
 
-这组端口号不是协议的一部分，换机器、换插口或重新枚举后可能变化。
-如果要长期稳定使用，建议按 [udev_rules.example](/home/wyz/peripherel/ws/src/inspection_bringup/docs/udev_rules.example:1)
-配置固定别名。
+本仓库当前约定的固定别名是：
+
+- `CJ702`：`/dev/ttyUSB_cj702`
+- `BY-F820`：`/dev/ttyUSB_alarm`
+- 继电器下位机：`/dev/ttyUSB_relay`
+
+检查别名是否生效：
+
+```bash
+ls -l /dev/ttyUSB_cj702 /dev/ttyUSB_alarm /dev/ttyUSB_relay
+```
 
 ## 快速验证功能
 
@@ -153,7 +163,7 @@ ros2 service call /alarm/set_mode inspection_msgs/srv/SetAlarmMode \
 
 ```bash
 ros2 run inspection_bringup speaker_play_file \
-  --port /dev/ttyCH341USB1 \
+  --port /dev/ttyUSB_alarm \
   --track-id 1
 ```
 
@@ -161,7 +171,7 @@ ros2 run inspection_bringup speaker_play_file \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action query
 ```
 
@@ -182,7 +192,7 @@ source install/setup.bash
 ```bash
 ros2 run inspection_bringup env_acceptance \
   --phase both \
-  --port /dev/ttyCH341USB0
+  --port /dev/ttyUSB_cj702
 ```
 
 只验串口原始收数：
@@ -190,7 +200,7 @@ ros2 run inspection_bringup env_acceptance \
 ```bash
 ros2 run inspection_bringup env_acceptance \
   --phase serial \
-  --port /dev/ttyCH341USB0
+  --port /dev/ttyUSB_cj702
 ```
 
 只验 ROS 话题：
@@ -198,7 +208,7 @@ ros2 run inspection_bringup env_acceptance \
 ```bash
 ros2 run inspection_bringup env_acceptance \
   --phase topic \
-  --port /dev/ttyCH341USB0
+  --port /dev/ttyUSB_cj702
 ```
 
 通过标准：
@@ -214,7 +224,7 @@ ros2 run inspection_bringup env_acceptance \
 ```bash
 ros2 run inspection_bringup speaker_acceptance \
   --phase both \
-  --port /dev/ttyCH341USB1
+  --port /dev/ttyUSB_alarm
 ```
 
 只验串口协议发送：
@@ -222,7 +232,7 @@ ros2 run inspection_bringup speaker_acceptance \
 ```bash
 ros2 run inspection_bringup speaker_acceptance \
   --phase serial \
-  --port /dev/ttyCH341USB1
+  --port /dev/ttyUSB_alarm
 ```
 
 只验 ROS 服务联动：
@@ -230,14 +240,14 @@ ros2 run inspection_bringup speaker_acceptance \
 ```bash
 ros2 run inspection_bringup speaker_acceptance \
   --phase service \
-  --port /dev/ttyCH341USB1
+  --port /dev/ttyUSB_alarm
 ```
 
 指定播放单个音频文件：
 
 ```bash
 ros2 run inspection_bringup speaker_play_file \
-  --port /dev/ttyCH341USB1 \
+  --port /dev/ttyUSB_alarm \
   --track-id 1
 ```
 
@@ -245,7 +255,7 @@ ros2 run inspection_bringup speaker_play_file \
 
 ```bash
 ros2 run inspection_bringup speaker_acceptance \
-  --port /dev/ttyCH341USB1 \
+  --port /dev/ttyUSB_alarm \
   --phase service \
   --single-mode manual_test \
   --mode-hold-seconds 20
@@ -263,7 +273,7 @@ ros2 run inspection_bringup speaker_acceptance \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action query
 ```
 
@@ -271,7 +281,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-one \
   --channel 1 \
   --state 1
@@ -281,7 +291,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-one \
   --channel 1 \
   --state 0
@@ -291,7 +301,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-one \
   --channel 2 \
   --state 1
@@ -301,7 +311,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-one \
   --channel 2 \
   --state 0
@@ -311,7 +321,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-one \
   --channel 3 \
   --state 1
@@ -321,7 +331,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-one \
   --channel 3 \
   --state 0
@@ -331,7 +341,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-all \
   --mask 0x07
 ```
@@ -340,7 +350,7 @@ ros2 run inspection_alarm relay_cli \
 
 ```bash
 ros2 run inspection_alarm relay_cli \
-  --port /dev/ttyCH341USB2 \
+  --port /dev/ttyUSB_relay \
   --action set-all \
   --mask 0x00
 ```
